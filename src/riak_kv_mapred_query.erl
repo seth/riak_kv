@@ -45,6 +45,9 @@
 %%         Mod:Fun(Object,KeyData,Arg)</li>
 %%<li>  {qfun, Fun} : Fun is an actual fun ->
 %%         Fun(Object,KeyData,Arg)</li>
+%%<li>  {strfun, Fun} : Fun is a string (list or binary)
+%%         containing the definition of an anonymous
+%%         Erlang function.</li>
 %%</ul>
 %% @type mapred_queryterm() =
 %%         {map, mapred_funterm(), Arg :: term(),
@@ -55,12 +58,13 @@
 %%          Accumulate :: boolean()}
 %% @type mapred_funterm() =
 %%         {modfun, Module :: atom(), Function :: atom()}|
-%%         {qfun, function()}
+%%         {qfun, function()}|
+%%         {strfun, list() | binary()}
 %% @type mapred_result() = [term()]
 
 -module(riak_kv_mapred_query).
 
--export([start/6]).
+-export([start/6, define_anon_erl/1]).
 
 start(Node, Client, ReqId, Query0, ResultTransformer, Timeout) ->
     EffectiveTimeout = erlang:trunc(Timeout  * 1.1),
@@ -86,6 +90,8 @@ check_query_syntax([QTerm={QTermType, QueryFun, Misc, Acc}|Rest], Accum) when is
                                                    is_atom(Fun) ->
                                {phase_mod(T), phase_behavior(T, QueryFun, Acc), [{erlang, QTerm}]};
                            {qfun, Fun} when is_function(Fun) ->
+                               {phase_mod(T), phase_behavior(T, QueryFun, Acc), [{erlang, QTerm}]};
+                           {strfun, Fun} when is_binary(Fun); is_list(Fun) ->
                                {phase_mod(T), phase_behavior(T, QueryFun, Acc), [{erlang, QTerm}]};
                            {jsanon, JS} when is_binary(JS) ->
                                {phase_mod(T), phase_behavior(T, QueryFun, Acc), [{javascript, QTerm}]};
@@ -143,3 +149,11 @@ fetch_js(Bucket, Key) ->
         _ ->
             {error, bad_fetch}
     end.
+
+define_anon_erl(FunStr) when is_binary(FunStr) ->
+    define_anon_erl(binary_to_list(FunStr));
+define_anon_erl(FunStr) when is_list(FunStr) ->
+    {ok, Tokens, _} = erl_scan:string(FunStr),
+    {ok, [Form]} = erl_parse:parse_exprs(Tokens),
+    {value, Fun, _} = erl_eval:expr(Form, erl_eval:new_bindings()),
+    Fun.

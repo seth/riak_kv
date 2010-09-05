@@ -120,7 +120,10 @@ maybe_reduce(Values,NextQTerm) ->
             try
                 NewValues = case FunTerm of
                                 {qfun,F} -> F(Values,Arg);
-                                {modfun,M,F} -> M:F(Values,Arg)
+                                {modfun,M,F} -> M:F(Values,Arg);
+                                {strfun,F} ->
+                                    Fun = riak_kv_mapred_query:define_anon_erl(F),
+                                    Fun(Values,Arg)
                             end,
                 {ok,NewValues}
             catch C:R ->

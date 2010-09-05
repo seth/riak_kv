@@ -560,7 +560,10 @@ exec_map(V, FunTerm, Arg, BKey, KeyData) ->
             {modfun, M, F} ->
                 MF_Res = M:F(V,KeyData,Arg),
                 mapcache(self(), BKey,{M,F,Arg,KeyData},MF_Res),
-                {ok, MF_Res}
+                {ok, MF_Res};
+            {strfun, F} ->
+                Fun = riak_kv_mapred_query:define_anon_erl(F),
+                {ok, Fun(V,KeyData,Arg)}
         end
     catch C:R ->
             Reason = {C, R, erlang:get_stacktrace()},

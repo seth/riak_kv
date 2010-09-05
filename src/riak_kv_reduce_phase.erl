@@ -90,6 +90,9 @@ perform_reduce({Lang,{reduce,FunTerm,Arg,_Acc}},
             {erlang, {modfun,M,F}} ->
                 Value = M:F(Reduced,Arg),
                 {ok, Value};
+            {erlang, {strfun,F}} ->
+                Fun = riak_kv_mapred_query:define_anon_erl(F),
+                {ok, Fun(Reduced,Arg)};
             {javascript, _} ->
                 case  riak_kv_js_manager:blocking_dispatch({FunTerm,
                                                             [riak_kv_mapred_json:jsonify_not_found(R) || R <- Reduced],

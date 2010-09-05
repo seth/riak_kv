@@ -251,21 +251,27 @@ parse_step(<<"javascript">>, StepDef) ->
             {ok, {jsanon, Source}}
     end;
 parse_step(<<"erlang">>, StepDef) ->
-    case bin_to_atom(proplists:get_value(<<"module">>, StepDef)) of
-        {ok, Module} ->
-            case bin_to_atom(proplists:get_value(<<"function">>, StepDef)) of
-                {ok, Function} ->
-                    {ok, {modfun, Module, Function}};
+    Source = proplists:get_value(<<"source">>, StepDef),
+    case Source of
+        undefined ->
+            case bin_to_atom(proplists:get_value(<<"module">>, StepDef)) of
+                {ok, Module} ->
+                    case bin_to_atom(proplists:get_value(<<"function">>, StepDef)) of
+                        {ok, Function} ->
+                            {ok, {modfun, Module, Function}};
+                        error ->
+                            {error, ["Could not convert \"function\" field value"
+                                     " to an atom in:"
+                                     "   ",mochijson2:encode({struct, StepDef}),
+                                     "\n"]}
+                    end;
                 error ->
-                    {error, ["Could not convert \"function\" field value"
+                    {error, ["Could not convert \"module\" field value"
                              " to an atom in:"
-                             "   ",mochijson2:encode({struct, StepDef}),
-                             "\n"]}
+                             "   ",mochijson2:encode({struct, StepDef}),"\n"]}
             end;
-        error ->
-            {error, ["Could not convert \"module\" field value"
-                     " to an atom in:"
-                     "   ",mochijson2:encode({struct, StepDef}),"\n"]}
+        _ ->
+            {ok, {strfun, Source}}
     end;
 parse_step(undefined, StepDef) ->
     {error, ["No \"language\" was specified for the phase:\n",
