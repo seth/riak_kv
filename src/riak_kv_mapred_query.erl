@@ -93,11 +93,19 @@ check_query_syntax([QTerm={QTermType, QueryFun, Misc, Acc}|Rest], Accum) when is
                                {phase_mod(T), phase_behavior(T, QueryFun, Acc), [{erlang, QTerm}]};
                            {strfun, Fun} when is_binary(Fun); is_list(Fun) ->
                                {phase_mod(T), phase_behavior(T, QueryFun, Acc), [{erlang, QTerm}]};
+                           {strfun, {Bucket, Key}} when is_binary(Bucket), is_binary(Key) ->
+                               case fetch_src(Bucket, Key) of
+                                   {ok, Erl} ->
+                                       {phase_mod(T), phase_behavior(T, QueryFun, Acc),
+                                        [{erlang, {T, {strfun, Erl}, Misc, Acc}}]};
+                                   _ ->
+                                       {bad_qterm, QTerm}
+                               end;
                            {jsanon, JS} when is_binary(JS) ->
                                {phase_mod(T), phase_behavior(T, QueryFun, Acc), [{javascript, QTerm}]};
                            {jsanon, {Bucket, Key}} when is_binary(Bucket),
                                                         is_binary(Key) ->
-                               case fetch_js(Bucket, Key) of
+                               case fetch_src(Bucket, Key) of
                                    {ok, JS} ->
                                        {phase_mod(T), phase_behavior(T, QueryFun, Acc), [{javascript,
                                                                                           {T, {jsanon, JS}, Misc, Acc}}]};
@@ -141,7 +149,7 @@ phase_behavior(reduce, _QueryFun, Accumulate) ->
             Behaviors0
     end.
 
-fetch_js(Bucket, Key) ->
+fetch_src(Bucket, Key) ->
     {ok, Client} = riak:local_client(),
     case Client:get(Bucket, Key, 1) of
         {ok, Obj} ->
